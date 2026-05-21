@@ -43,18 +43,21 @@ remove_hook_entry() {
     return
   fi
 
-  # Remove our hook from .hooks.PostToolUse (Claude-style nested schema).
-  # Drop the PostToolUse array entirely if it becomes empty after filter;
-  # drop .hooks entirely if no events remain. Never delete other top-level
-  # keys (settings.json may contain model/permissions/theme/etc.).
+  # Remove our hook from both schemas:
+  # 1. .hooks.PostToolUse[] — current schema (v1.1.2+) used by OMC settings.json + OMX hooks.json
+  # 2. .PostToolUse[]       — legacy schema (v1.0.0–v1.1.1) at ~/.claude/hooks.json root level
+  # Then collapse: empty arrays → del key; empty .hooks → del .hooks.
+  # Never delete other top-level keys (settings.json may contain model/permissions/theme/etc.).
   if jq '
-    if .hooks.PostToolUse then
-      .hooks.PostToolUse = [.hooks.PostToolUse[] | select(.hooks | all(.command | test("memory-reminder") | not))]
-      | if .hooks.PostToolUse | length == 0 then .hooks |= del(.PostToolUse) else . end
-      | if (.hooks // {}) == {} then del(.hooks) else . end
-    else
-      .
-    end
+    (if .hooks.PostToolUse then
+       .hooks.PostToolUse = [.hooks.PostToolUse[] | select(.hooks | all(.command | test("memory-reminder") | not))]
+       | if .hooks.PostToolUse | length == 0 then .hooks |= del(.PostToolUse) else . end
+     else . end)
+    | (if .PostToolUse then
+         .PostToolUse = [.PostToolUse[] | select(.hooks | all(.command | test("memory-reminder") | not))]
+         | if .PostToolUse | length == 0 then del(.PostToolUse) else . end
+       else . end)
+    | (if (.hooks // {}) == {} then del(.hooks) else . end)
   ' "$config_file" > "${config_file}.tmp"; then
     mv "${config_file}.tmp" "$config_file"
   else

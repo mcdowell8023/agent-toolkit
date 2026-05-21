@@ -326,7 +326,12 @@ register_hook() {
   local platform="$2"
   local hook_cmd="node $INSTALL_DIR/hooks/platform/memory-reminder.mjs"
 
-  if [[ -f "$config_file" ]] && grep -q "memory-reminder.mjs" "$config_file" 2>/dev/null; then
+  # Skip if our hook is already in .hooks.PostToolUse (jq exact-match).
+  # Without jq the merge step below cannot proceed regardless, so this guard
+  # is intentionally a no-op when jq is absent.
+  if [[ -f "$config_file" ]] && command -v jq &>/dev/null \
+     && jq -e '.hooks.PostToolUse[]?.hooks[]? | select(.command | test("memory-reminder"))' \
+          "$config_file" &>/dev/null; then
     info "$platform: already registered"
     return
   fi
