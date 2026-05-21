@@ -39,10 +39,16 @@ remove_hook_entry() {
   fi
 
   if command -v jq &>/dev/null; then
-    jq '
+    if jq '
       .PostToolUse = [.PostToolUse[] | select(.hooks | all(.command | test("memory-reminder") | not))]
       | if .PostToolUse | length == 0 then del(.PostToolUse) else . end
-    ' "$hooks_file" > "${hooks_file}.tmp" && mv "${hooks_file}.tmp" "$hooks_file"
+    ' "$hooks_file" > "${hooks_file}.tmp"; then
+      mv "${hooks_file}.tmp" "$hooks_file"
+    else
+      rm -f "${hooks_file}.tmp"
+      warn "$platform: jq failed to parse $hooks_file — manually remove memory-reminder entry"
+      return
+    fi
 
     if jq -e 'keys | length == 0' "$hooks_file" &>/dev/null; then
       rm -f "$hooks_file"

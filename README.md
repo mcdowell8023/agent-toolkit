@@ -79,7 +79,7 @@ cd agent-gates
 | Platform | Skills Location | Hook Registration |
 |----------|----------------|-------------------|
 | Claude Code (OMC) | `~/.claude/skills/` | `~/.claude/hooks.json` |
-| OpenCode (OMO) | `~/.config/opencode/skills/` | `~/.claude/settings.json` |
+| OpenCode (OMO) | `~/.config/opencode/skills/` | `~/.claude/hooks.json` (shared) or `~/.config/opencode/hooks.json` (override) |
 | Codex (OMX) | `~/.codex/skills/` | `~/.codex/hooks.json` |
 | cc-switch | `~/.cc-switch/skills/` + symlinks | All of above |
 
@@ -134,7 +134,7 @@ What the installer does on upgrade:
 
 ### Upgrade limitations to know about
 
-- **Per-project hook is NOT auto-upgraded.** Each project's `.git/hooks/agent-quality-gate` is a one-time copy made by `init-project-gates`. After upgrading agent-gates globally, re-run `init project gates` in each initialized repo to sync the latest hook.
+- **Per-project hook is NOT auto-upgraded.** Each project's `.githooks/agent-quality-gate.sh` (with `pre-commit` symlinked to it) is a one-time copy made by `init-project-gates`. After upgrading agent-gates globally, re-run `init project gates` in each initialized repo to sync the latest hook.
 - **Backups accumulate.** Each upgrade that detects user changes leaves a new `SKILL.md.bak.*` file. Run `./uninstall.sh --purge-backups` (combined with `--keep-skills` if you only want to clean backups) to remove them after merging your edits.
 - **OpenCode override mode.** If `~/.config/opencode/hooks.json` exists, the installer treats it as an override and merges there too. Without it, OMO falls back to `~/.claude/hooks.json`.
 - **No automatic skill migration.** If a future version renames or restructures a skill directory, you may need to manually clean up the old layout — the installer only updates known skill names.

@@ -340,13 +340,19 @@ register_hook_json() {
 EOF
     info "$platform: created $hooks_file"
   elif command -v jq &>/dev/null; then
-    jq --arg cmd "$hook_cmd" '
+    if jq --arg cmd "$hook_cmd" '
       .PostToolUse = ((.PostToolUse // []) + [{
         "matcher": "TodoWrite|todowrite",
         "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]
       }])
-    ' "$hooks_file" > "${hooks_file}.tmp" && mv "${hooks_file}.tmp" "$hooks_file"
-    info "$platform: merged into existing $hooks_file"
+    ' "$hooks_file" > "${hooks_file}.tmp"; then
+      mv "${hooks_file}.tmp" "$hooks_file"
+      info "$platform: merged into existing $hooks_file"
+    else
+      rm -f "${hooks_file}.tmp"
+      warn "$platform: jq failed to parse $hooks_file — file may be malformed."
+      echo "    Inspect or rename the file, then re-run the installer."
+    fi
   else
     warn "$platform: $hooks_file exists but jq not found for safe merge."
     local jq_cmd
@@ -428,7 +434,7 @@ main() {
   echo ""
   echo "  Already-initialized projects (have a .agent/ dir):"
   echo "    Re-run 'init project gates' in those repos to sync the latest"
-  echo "    agent-quality-gate.sh into .git/hooks/ — the per-project copy"
+  echo "    agent-quality-gate.sh into .githooks/ — the per-project copy"
   echo "    is NOT auto-upgraded."
   echo ""
 }
