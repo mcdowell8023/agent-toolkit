@@ -280,6 +280,12 @@ install_hook_files() {
 
   info "Installed: memory-reminder.mjs"
   info "Installed: agent-quality-gate.sh"
+
+  if [[ -f "$REPO_DIR/doctor.sh" ]]; then
+    cp "$REPO_DIR/doctor.sh" "$INSTALL_DIR/doctor.sh"
+    chmod +x "$INSTALL_DIR/doctor.sh"
+    info "Installed: doctor.sh"
+  fi
 }
 
 # --- Hook configuration constants ---
@@ -437,6 +443,10 @@ main() {
   echo "  Hooks:   $INSTALL_DIR/hooks/"
   echo "           ├─ git/agent-quality-gate.sh"
   echo "           └─ platform/memory-reminder.mjs"
+  if [[ -f "$INSTALL_DIR/doctor.sh" ]]; then
+    echo ""
+    echo "  Verify:  $INSTALL_DIR/doctor.sh   (run anytime to check deployment health)"
+  fi
   echo ""
 
   if [[ ${#BACKED_UP_SKILLS[@]} -gt 0 ]]; then

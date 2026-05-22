@@ -141,6 +141,46 @@ What the installer does on upgrade:
 - **OpenCode override mode.** If `~/.config/opencode/hooks.json` exists, the installer treats it as an override and merges there too. Without it, OMO falls back to `~/.claude/hooks.json`.
 - **No automatic skill migration.** If a future version renames or restructures a skill directory, you may need to manually clean up the old layout — the installer only updates known skill names.
 
+## Doctor
+
+After install, run `~/.agent-gates/doctor.sh` (or `./doctor.sh` from the repo) to verify deployment health:
+
+```bash
+~/.agent-gates/doctor.sh
+```
+
+Sample output:
+
+```
+✓ node v26.0.0
+✓ jq jq-1.8.1
+✓ Memory skill detected: ~/.cc-switch/skills/memory-1.0.2
+✓ installed version: 1.3.0
+✓ up to date with remote (1.3.0)
+✓ memory-reminder.mjs present
+✓ agent-quality-gate.sh present (executable)
+✓ OMC settings.json hook registered (matcher contains TaskUpdate)
+✓ OMX hooks.json hook registered
+✓ hook output schema valid (hookEventName=PostToolUse, reminder included)
+✓ no memory-reminder hook errors in last-7d transcripts
+
+10 pass · 0 warn · 0 fail
+```
+
+Exit code is **0 if no FAIL** (WARN allowed), **1 if any FAIL**, so the script is CI-friendly:
+
+```bash
+~/.agent-gates/doctor.sh --quiet --no-network && echo "deployment OK"
+```
+
+| Flag | Effect |
+|---|---|
+| `--quiet` | Suppress dim/info notes; show only the PASS/WARN/FAIL table |
+| `--no-network` | Skip the remote `.version` check (offline mode) |
+| `--help` | Usage |
+
+Doctor checks the same surface as the install/uninstall scripts (paths, registrations, schema). If a check FAILs, the message includes a one-line fix hint pointing back to `install.sh` or this README's Troubleshooting section.
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
