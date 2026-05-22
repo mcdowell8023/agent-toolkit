@@ -152,53 +152,98 @@ flowchart LR
 
 ---
 
-## 5. 与 agent-superpowers / OpenSpec 是什么关系
+## 5. 与 agent-superpowers / OpenSpec 的关系
 
-这三个东西经常被混淆，但实际上是**三层并行的**：
+> 这个工具不是凭空冒出来的。它是 2026-05-18 那份《**BDD + CLI Gate + OpenSpec 整合方案**》（本地 Vault：`Wiki/04_Knowledge/AI/Agent/编码助手/BDD-CLI-Gate-OpenSpec整合方案.md`）里 L3 加部分 L2 的工程化落地。
+
+整合方案的核心论点是：纯 prompt 约束不够，必须**让代码（而非提示词）成为最终裁判**。方案分三层：
 
 ```mermaid
 flowchart TB
-    subgraph layer3["L3 — 规格层（OpenSpec / opsx）"]
-        L3A[spec-first 工作流]
-        L3B[.feature Gherkin 验收]
-        L3C[opsx:explore → propose → apply → archive]
+    subgraph L1["L1 — 规划层（OpenSpec / opsx）"]
+        direction TB
+        L1A[opsx:explore<br/>探索]
+        L1B[opsx:propose<br/>proposal + specs + design + tasks]
+        L1C[opsx:apply<br/>逐步实现]
+        L1D[opsx:archive<br/>归档]
+        L1A --> L1B --> L1C --> L1D
     end
 
-    subgraph layer2["L2 — 纪律规则层（agent-superpowers）"]
-        L2A[纪律 prompt snippet]
-        L2B[brainstorming → plan → implement<br/>→ spec-review → quality-review<br/>→ verify → complete]
-        L2C[嵌入 AGENTS.md 由 agent 读取]
+    subgraph L2["L2 — 实现层（BDD + TDD）"]
+        direction TB
+        L2A[features/*.feature<br/>Gherkin scenarios]
+        L2B[RED 写测试<br/>对齐 scenario]
+        L2C[GREEN 最小实现]
+        L2D[REFACTOR 整理]
+        L2A --> L2B --> L2C --> L2D
     end
 
-    subgraph layer1["L1 — 运行时执行层（agent-gates）"]
-        L1A[3 skill + 2 hook + 项目模板]
-        L1B[跨平台安装 + 自检 + 卸载]
-        L1C[git pre-commit 物理强制]
+    subgraph L3["L3 — 门控层（agent-gates）"]
+        direction TB
+        L3A[CHECK 1<br/>OpenSpec change 存在?]
+        L3B[CHECK 2<br/>.feature 文件存在?]
+        L3C[CHECK 3<br/>测试对应 scenario?]
+        L3D[CHECK 4<br/>tests pass?]
+        L3A --> L3B --> L3C --> L3D
     end
 
-    layer3 -. 团队项目<br/>spec 路径 .-> layer1
-    layer2 -. 规则映射 .-> layer1
-    layer1 -. enforce .-> layer2
-    layer1 -. enforce .-> layer3
+    L1 --> L2
+    L2 --> L3
+    L3 -->|"ALL PASS"| Commit[git commit ✅]
+    L3 -->|"ANY FAIL"| Block[阻断 commit ❌]
 
-    classDef l1 fill:#fef2f2,stroke:#b91c1c
+    classDef l1 fill:#f0fdf4,stroke:#15803d
     classDef l2 fill:#fef3c7,stroke:#a16207
-    classDef l3 fill:#f0fdf4,stroke:#15803d
-    class L1A,L1B,L1C l1
-    class L2A,L2B,L2C l2
-    class L3A,L3B,L3C l3
+    classDef l3 fill:#fef2f2,stroke:#b91c1c
+    class L1A,L1B,L1C,L1D l1
+    class L2A,L2B,L2C,L2D l2
+    class L3A,L3B,L3C,L3D l3
 ```
 
-| 项目 | 形态 | 强制性 | 多平台支持 | 跟 agent-gates 关系 |
-|---|---|---|---|---|
-| **agent-superpowers** | 单个 SKILL.md + AGENTS.md snippet | 软约束（agent 自觉） | 任何能读 SKILL 的 agent | agent-gates 把它的规则**实现**为可触发的 skill + 硬 gate |
-| **OpenSpec / opsx** | 多个 `opsx:*` 命令 skill 套件 | 工作流规范 | 任何安装 opsx 的 agent | agent-gates 的 pre-commit gate **可以挂 OpenSpec 检查项**（AGENT_MODE=1 模式下检查 `.feature` 和 spec 引用） |
-| **agent-gates** | 跨平台 installer + skill + hook + 项目模板 | 硬约束（PostToolUse hook + git pre-commit） | OMC / OMO / OMX / cc-switch 都装 | **底层执行层** —— 上面两个东西的规则最终都靠这一层在运行时落地 |
+### agent-gates 在方案里的位置
 
-**一句话**：
-- agent-superpowers **说**应该怎么做（规则文本）
-- OpenSpec **规范**功能怎么生（spec-first 流水线）
-- agent-gates **强制** agent 必须按那些规则做（hook + gate）
+| 层 | 方案设计 | agent-gates 当前实现 | 状态 |
+|---|---|---|---|
+| L1 OpenSpec | spec-first 工作流 + `.opencode/skills/openspec-*` | 通过全局 `10-workflow.md` 路径 A 描述；本仓库**不安装** opsx | 全局规则已对齐，工具 standalone |
+| L2 BDD | `features/*.feature` Gherkin 验收 | 全局 `10-workflow.md` §BDD Gherkin 要求已声明；本仓库**未强制**生成 | 规范已落，未强制 |
+| L2 TDD | RED→GREEN→REFACTOR | `agent-workflow-rules` skill §标准 TDD 流程强制约束 | ✅ 已实现 |
+| L2 Three-Agent Review | 自评 + Spec + Quality 三角色 | `agent-review-protocol` skill 落地 | ✅ 已实现 |
+| L3 CHECK 1 OpenSpec | 检查 `openspec/changes/<name>/` 存在 | `agent-quality-gate.sh` v1.3 **未实现** | ⏳ 计划中 |
+| L3 CHECK 2 BDD | 检查 `features/*.feature` 存在 | 未实现 | ⏳ 计划中 |
+| L3 CHECK 3 测试对应 | 新增 src 必有对应 test 文件 | Gate 1 ✅ 已实现（多语言：ts/js/py/java/kt/go） | ✅ |
+| L3 CHECK 4 tests pass | 跑测试 | 设计文档明确不在 hook 里执行（CI 负责）；agent-gates 改用 **Gate 2 — Cross-Review 证据**作为替代质量门 | ✅ 已替换实现 |
+| L3 隐形依赖 | Memory persistence | `memory-reminder.mjs` PostToolUse hook（方案文档未提，agent-gates 自加） | ✅ 已实现（v1.2.1） |
+| L3 部署健康检查 | （方案未涵盖） | `doctor.sh`（v1.3.0 加入，v1.3.1 加强） | ✅ 已实现 |
+
+### 跟 agent-superpowers 怎么比
+
+agent-superpowers 是 **L2 纪律规则的另一种交付形态**——它把规则做成一个 SKILL.md + 一段 AGENTS.md snippet，靠 agent 自觉遵守。agent-gates 与它**并列存在**，但解决的问题更进一步：
+
+| 维度 | agent-superpowers | agent-gates |
+|---|---|---|
+| 形态 | 单一 skill + AGENTS.md 注入 | 跨平台 installer + 多 skill + hook + 模板 |
+| 强制层 | 仅 L2（提示词约束） | L2（skill 约束）+ L3（git pre-commit 硬阻断） |
+| 多 agent 平台 | 任意支持 SKILL.md 的 agent | OMC / OMO / OMX / cc-switch 都装，hook 统一注册 |
+| Memory 持久化 | 不管 | PostToolUse hook 主动注入 reminder |
+| 与 OpenSpec 协同 | 不挂钩 | gate 设计预留 OpenSpec / BDD 检查口（待实现） |
+| 自检工具 | 无 | `doctor.sh` |
+
+**一句话总结**：
+- **OpenSpec** = L1 规划层（说要做什么、为什么、怎么验收）
+- **agent-superpowers** = L2 的纯 prompt 版本（轻量、靠 agent 自觉）
+- **agent-gates** = L2（skill 约束）+ L3（CLI gate 硬阻断）的工程化落地，是上面那份整合方案的执行端实现
+
+### 还没做的部分
+
+按整合方案设计，agent-gates 后续要补：
+
+1. `agent-quality-gate.sh` 加 **CHECK 1**：项目有 `openspec/` 时检查活跃 change 存在（无活跃 change + 非 trivial 变更 → WARN/FAIL）
+2. `agent-quality-gate.sh` 加 **CHECK 2**：检测到新增功能文件且无对应 `features/*.feature` → FAIL
+3. `init-project-gates` skill 加 `features/` 目录脚手架 + step_definitions 多语言模板
+4. `doctor.sh` 加 `check_openspec_install`（团队项目）和 `check_bdd_features_dir`
+5. `install.sh` 增加 `--with-openspec` 标志，自动调 `openspec init`
+
+这些是 v1.4+ 的方向。在那之前，全局 `10-workflow.md` 已经先把规则写好（路径 A / 团队项目），agent 在团队项目里**应当**按 OpenSpec 走，只是 agent-gates 的硬 gate 还没把这一层卡死。
 
 ---
 
