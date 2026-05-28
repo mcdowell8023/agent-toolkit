@@ -36,16 +36,17 @@ agent-gates/
 
 The install path must be space-free (`$HOME` must not contain spaces) — shell hooks cannot reliably escape such paths.
 
-### Upstream skill dependencies (not auto-installed)
+### Default install behavior (v1.5.2)
 
-`agent-gates` deliberately does **not** auto-install upstream skills or the OpenSpec CLI — per the project's destructive-command red line, third-party tooling must be installed by the user after review:
+Starting in v1.5.2, `./install.sh` automatically installs upstream skill dependencies so the box-fresh experience matches the workflow rules:
 
-| Dependency | Install command | Source |
+| Dependency | v1.5.2 behavior | Source |
 |---|---|---|
-| `agent-superpowers` skill suite | follow the upstream README to copy `test-driven-development`, `brainstorming`, `verification-before-completion`, `opsx:explore` into your agent skills dir | <https://github.com/obra/superpowers> |
-| OpenSpec CLI | `npm install -g @openspec/cli` | <https://github.com/Fission-AI/OpenSpec> |
+| Memory skill | **Auto-installed** — sparse-clone of `clawic/skills` (MIT). Skipped if already present. | <https://github.com/clawic/skills> |
+| `agent-superpowers` 14-skill suite (`test-driven-development`, `brainstorming`, `verification-before-completion`, `writing-plans`, `executing-plans`, …) | **Auto-installed** — full clone copied into the platform skills dir. Skipped if the 5 core hardcore skills are already present. | <https://github.com/obra/superpowers> |
+| OpenSpec CLI | **Interactive prompt (y/N)** — installer runs `npm install -g @openspec/cli` only after explicit consent. Non-interactive shells default to N. | <https://github.com/Fission-AI/OpenSpec> |
 
-If none of these are installed, agent-gates still runs — Path B (TDD only, no OpenSpec / no BDD) is the default. `doctor.sh` reports their absence as informational `note`, not `FAIL`.
+Use `./install.sh --skip-deps` to opt out (CI environments, advanced users managing their own skill installs). Without these dependencies agent-gates still runs — Path B (TDD only, no OpenSpec / no BDD) is the default and `doctor.sh` reports missing pieces as informational `note`, not `FAIL`.
 
 ## Quick Install
 
@@ -95,7 +96,7 @@ cd agent-gates
 |----------|----------------|-------------------|--------|
 | Claude Code (OMC) | `~/.claude/skills/` | `~/.claude/settings.json` → `.hooks.PostToolUse[]` | requires existing `settings.json` (start Claude Code once first) |
 | Claude Code + OMO | `~/.config/opencode/skills/` (priority), `~/.claude/skills/` (fallback) | covered by OMC registration above — OMO reads `~/.claude/settings.json` PostToolUse hooks when running on Claude Code | same as OMC |
-| OpenCode (OMO native) | `~/.config/opencode/skills/` | manual — installer prints the entry to add to `~/.config/opencode/hooks.json` `.hooks.PostToolUse[]`; auto-registration tracked | nested schema (same shape as OMC/OMX) |
+| OpenCode (OMO native) | `~/.config/opencode/skills/` | **v1.5.2 auto-registers** to `~/.config/opencode/hooks.json` `.hooks.PostToolUse[]` (reuses OMC/OMX `register_hook` jq logic) | nested schema (same shape as OMC/OMX) |
 | Codex (OMX) | `~/.codex/skills/` | `~/.codex/hooks.json` → `.hooks.PostToolUse[]` | nested schema, installer creates file if missing |
 | cc-switch | `~/.cc-switch/skills/` + symlinks | combines OMC + OMX above | — |
 
@@ -209,7 +210,7 @@ When installing with `--with-openspec`, the installer checks for the OpenSpec CL
 ./install.sh --with-openspec
 ```
 
-This verifies `openspec` is available on PATH and reports install instructions if missing. The OpenSpec CLI itself is not auto-installed (per the destructive-command red line).
+This verifies `openspec` is available on PATH and reports install instructions if missing. Since v1.5.2, the default `./install.sh` flow already prompts (y/N) to run `npm install -g @openspec/cli` when the CLI is absent — `--with-openspec` remains supported for explicit declaration. Pass `--skip-deps` to suppress the prompt entirely.
 
 Once OpenSpec is set up in your project, the workflow becomes:
 
