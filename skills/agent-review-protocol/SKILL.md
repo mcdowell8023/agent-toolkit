@@ -386,11 +386,13 @@ Routes are tried top-to-bottom. A higher-priority route that is available and he
 
 | Priority | Route | Command Pattern | Heterogeneous? |
 | --- | --- | --- | --- |
-| L4 | opencode CLI | `opencode run -m github-copilot/gpt-5.5 --dir <workdir> "$(cat <prompt>)" > <result>` | Yes |
-| L3 | codex CLI | `codex review --base <main-branch> --title "Cross-check: <feature>"` or `codex exec "<prompt>"` | Yes |
-| L2 | OMC codex plugin | Via `codex:codex-rescue` agent or `/ask codex` | Yes |
-| L1 | Paseo | `create_agent provider="codex/gpt-5.4" prompt="<review>" background=true` | Yes |
-| L0 | Agent tool (ultimate fallback) | Claude Code Agent tool — same-model sub-agent | **No** |
+| 1 (→ L3) | opencode CLI | `opencode run -m github-copilot/gpt-5.5 --dir <workdir> "$(cat <prompt>)" > <result>` | Yes |
+| 2 (→ L1) | codex CLI | `codex review --base <main-branch> --title "Cross-check: <feature>"` or `codex exec "<prompt>"` | Yes |
+| 3 (→ L1) | OMC codex plugin | Via `codex:codex-rescue` agent or `/ask codex` | Yes |
+| 4 | Paseo | `create_agent provider="codex/gpt-5.4" prompt="<review>" background=true` | Yes |
+| 5 (→ L0) | Agent tool (ultimate fallback) | Claude Code Agent tool — same-model sub-agent | **No** |
+
+Note: L0/L1/L2/L3 refer to capability levels set by `doctor.sh`, not route priority numbers. L3 = opencode + codex, L2 = opencode, L1 = codex or OMC plugin, L0 = none.
 
 L0 is always available but does NOT satisfy the heterogeneous-model requirement of §1.
 
@@ -448,6 +450,10 @@ Set environment variable `REQUIRE_HETEROGENEOUS=1` to enforce that L0 (same-mode
 
 - Without the flag: L0 review produces a `⚠️ WARN: same-model review` annotation but does not block delivery.
 - With the flag: L0 review produces `❌ FAIL: heterogeneous review required` and the agent must either fix tool availability or escalate to the user.
+
+**How to fix L0**: Install at least one external review tool to reach L1+:
+- Fastest: `npm install -g @openai/codex` (L1 — GPT cross-review)
+- Best: install opencode CLI from https://opencode.ai (L2 — multi-provider)
 
 ---
 

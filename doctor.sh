@@ -445,20 +445,26 @@ check_cross_review_capability() {
     fallback=""
   fi
 
-  # -- persist to JSON --
-  local detected_at out_file
+  # -- persist to JSON (atomic write, escaped values) --
+  local detected_at out_file tmp_file
   detected_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date +"%Y-%m-%dT%H:%M:%S" || true)
   out_file="$INSTALL_DIR/review-capability.json"
+  tmp_file="${out_file}.tmp.$$"
 
-  cat > "$out_file" <<RCEOF
+  local esc_opencode_path esc_codex_path esc_codex_version
+  esc_opencode_path=$(printf '%s' "$opencode_path" | sed 's/["\]/\\&/g')
+  esc_codex_path=$(printf '%s' "$codex_path" | sed 's/["\]/\\&/g')
+  esc_codex_version=$(printf '%s' "$codex_version" | sed 's/["\]/\\&/g')
+
+  cat > "$tmp_file" <<RCEOF
 {
   "detected_at": "${detected_at}",
   "detected_by": "doctor",
   "level": "${level}",
   "env": "${env_type}",
   "decision_tree": [
-    { "route": "opencode", "available": ${opencode_available}, "path": "${opencode_path}" },
-    { "route": "codex", "available": ${codex_available}, "version": "${codex_version}", "path": "${codex_path}" },
+    { "route": "opencode", "available": ${opencode_available}, "path": "${esc_opencode_path}" },
+    { "route": "codex", "available": ${codex_available}, "version": "${esc_codex_version}", "path": "${esc_codex_path}" },
     { "route": "omc-codex-plugin", "available": ${omc_codex_plugin} },
     { "route": "paseo", "available": ${paseo_available} },
     { "route": "agent-tool", "available": true, "note": "always available (L0 fallback)" }
@@ -468,6 +474,7 @@ check_cross_review_capability() {
   "ultimate_fallback": "agent-tool"
 }
 RCEOF
+  mv "$tmp_file" "$out_file"
 
   # -- report --
   if [[ "$level" == "L3" ]]; then
@@ -484,6 +491,18 @@ RCEOF
   [[ "$paseo_available" == "true" ]] && note "Paseo orchestrator detected (does not affect review level)"
   [[ "$env_type" != "local" ]] && note "environment: $env_type"
   note "wrote $out_file"
+
+  # -- check recent review files for REVIEW_LEVEL --
+  if [[ -d .agent/reviews ]]; then
+    local latest_review
+    latest_review=$(find .agent/reviews/ -name "*.md" -mmin -10080 2>/dev/null | sort -r | head -1)
+    if [[ -n "$latest_review" ]]; then
+      if grep -q 'REVIEW_LEVEL: L0' "$latest_review" 2>/dev/null; then
+        warn "Recent review ($latest_review) was L0 (single-model) — does not satisfy heterogeneous requirement"
+      fi
+    fi
+  fi
+
   return 0
 }
 
